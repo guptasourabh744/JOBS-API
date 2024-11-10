@@ -23,11 +23,28 @@ const UserSchema = new mongoose.Schema({
     required: [true, 'Please provide password'],
     minlength: 6,
   },
+  otp: {
+    type: String,
+  },
+  otpExpires: {
+    type: Date,
+  },
+  isVerified: { type: Boolean, default: false },
+  favorites: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Job',
+    },
+  ],
 })
 
-UserSchema.pre('save', async function () {
+UserSchema.pre('save', async function (next) {
+
+  if (!this.isModified('password')) return next()
+  
   const salt = await bcrypt.genSalt(10)
   this.password = await bcrypt.hash(this.password, salt)
+  next()
 })
 
 UserSchema.methods.createJWT = function () {
@@ -44,5 +61,12 @@ UserSchema.methods.comparePassword = async function (canditatePassword) {
   const isMatch = await bcrypt.compare(canditatePassword, this.password)
   return isMatch
 }
+
+UserSchema.methods.generateOTP = function () {
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  this.otp = otp;
+  this.otpExpires = Date.now() + 10 * 60 * 1000;
+  return otp;
+};
 
 module.exports = mongoose.model('User', UserSchema)
